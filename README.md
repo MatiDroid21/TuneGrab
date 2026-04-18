@@ -1,4 +1,4 @@
-# 🎵 MP3 Downloader — by MatiDroid
+# 🎵 TuneGrab — by MatiDroid
 
 Descarga canciones de YouTube directamente como MP3, sin anuncios, sin webs maliciosas, desde tu propio computador.
 
@@ -45,6 +45,8 @@ ffmpeg -version
 ```
 Si ves información de ffmpeg, está listo ✅
 
+> ⚠️ Si `ffmpeg -version` no responde, cierra PowerShell completamente y vuelve a abrirlo como Administrador antes de continuar.
+
 ---
 
 ### Paso 3 — Descargar este proyecto
@@ -56,7 +58,7 @@ Si ves información de ffmpeg, está listo ✅
 
 **Opción B — Con Git:**
 ```
-git clone https://github.com/MatiDroid/mp3-downloader.git
+git clone https://github.com/MatiDroid21/TuneGrab.git
 ```
 
 ---
@@ -65,7 +67,7 @@ git clone https://github.com/MatiDroid/mp3-downloader.git
 
 1. Abre PowerShell y navega a la carpeta del proyecto:
 ```
-cd C:\Users\TU_NOMBRE\Desktop\mp3-downloader
+cd C:\Users\TU_NOMBRE\Desktop\TuneGrab
 ```
 > 💡 Reemplaza `TU_NOMBRE` con tu nombre de usuario de Windows
 
@@ -73,7 +75,7 @@ cd C:\Users\TU_NOMBRE\Desktop\mp3-downloader
 ```
 pip install -r requirements.txt
 ```
-Solo se hace una vez ✅
+Esto instala automáticamente **yt-dlp** y **Flask** (todo lo necesario). Solo se hace una vez ✅
 
 ---
 
@@ -85,12 +87,12 @@ Solo se hace una vez ✅
 ```
 python app.py
 ```
-2. Abre tu navegador y ve a:
+2. Abre tu navegador (Chrome, Edge, Firefox) y ve a:
 ```
 http://localhost:5000
 ```
 3. Pega la URL de YouTube, elige la calidad y haz clic en **"Descargar MP3"**
-4. Cuando aparezca **"Guardar MP3"**, haz clic para guardarlo
+4. Cuando aparezca el botón **"Guardar MP3"**, haz clic para guardarlo en tu computador
 
 > Para cerrar el servidor, vuelve a PowerShell y presiona `Ctrl + C`
 
@@ -113,14 +115,16 @@ python downloader.py "https://www.youtube.com/watch?v=XXXXXXX" -q 192
 # Carpeta personalizada
 python downloader.py "https://www.youtube.com/watch?v=XXXXXXX" -o "C:/Musica"
 ```
-> ⚠️ Siempre pon la URL entre comillas dobles `" "`
+> ⚠️ Siempre pon la URL entre comillas dobles `" "`. Si la URL tiene el símbolo `&`, es obligatorio.
+
+Los archivos se guardan en la carpeta `downloads/` dentro del proyecto.
 
 ---
 
 ## Preguntas frecuentes
 
 **¿De dónde saco la URL?**
-En YouTube, clic derecho sobre el video → "Copiar URL del video".
+En YouTube, clic derecho sobre el video → "Copiar URL del video". O copia lo que aparece en la barra de direcciones del navegador.
 
 **¿Qué calidad elijo?**
 - **320 kbps** → Máxima calidad (recomendado)
@@ -134,14 +138,17 @@ No, también funciona con SoundCloud, Vimeo, TikTok y miles de sitios más.
 Ejecuta: `pip install yt-dlp`
 
 **Error: "ffmpeg not found"**
-Revisa el Paso 2 de esta guía, asegúrate de haberlo instalado como administrador.
+Revisa el Paso 2 de esta guía. Asegúrate de haber instalado ffmpeg como Administrador y de haber cerrado y reabierto PowerShell después.
+
+**Error: "No module named flask"**
+Ejecuta: `pip install flask`
 
 ---
 
 ## Estructura del proyecto
 
 ```
-mp3-downloader/
+TuneGrab/
 ├── app.py              → Servidor web (interfaz gráfica)
 ├── downloader.py       → Script de terminal
 ├── templates/
