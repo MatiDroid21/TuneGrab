@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import shutil
 import sys
 
 try:
@@ -11,14 +12,17 @@ except ImportError:
     print("yt-dlp no esta instalado. Ejecuta: pip install yt-dlp")
     sys.exit(1)
 
-FFMPEG_PATH = r"C:\Users\droid\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin"
+def get_ffmpeg_path():
+    ruta = shutil.which("ffmpeg")
+    if ruta:
+        return os.path.dirname(ruta)
+    return None
 
 def descargar_mp3(url: str, carpeta: str = "./downloads", calidad: str = "0"):
     os.makedirs(carpeta, exist_ok=True)
 
     opciones = {
         "format": "bestaudio/best",
-        "ffmpeg_location": FFMPEG_PATH,
         "outtmpl": os.path.join(carpeta, "%(title)s.%(ext)s"),
         "noplaylist": True,
         "postprocessors": [
@@ -34,6 +38,10 @@ def descargar_mp3(url: str, carpeta: str = "./downloads", calidad: str = "0"):
         "quiet": False,
         "no_warnings": False,
     }
+
+    ffmpeg = get_ffmpeg_path()
+    if ffmpeg:
+        opciones["ffmpeg_location"] = ffmpeg
 
     print(f"\nDescargando: {url}")
     print(f"Destino: {os.path.abspath(carpeta)}\n")

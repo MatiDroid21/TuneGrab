@@ -2,13 +2,19 @@
 from flask import Flask, render_template, request, send_file, jsonify
 import yt_dlp
 import os
+import shutil
 import threading
 
 app = Flask(__name__)
 
-FFMPEG_PATH = r"C:\Users\droid\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.1-full_build\bin"
 DOWNLOAD_FOLDER = "./downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+def get_ffmpeg_path():
+    ruta = shutil.which("ffmpeg")
+    if ruta:
+        return os.path.dirname(ruta)
+    return None
 
 descarga_estado = {"progreso": 0, "estado": "idle", "archivo": "", "error": ""}
 
@@ -24,9 +30,9 @@ def hook_progreso(d):
 
 def descargar(url, calidad):
     descarga_estado.update({"progreso": 0, "estado": "iniciando", "archivo": "", "error": ""})
+
     opciones = {
         "format": "bestaudio/best",
-        "ffmpeg_location": FFMPEG_PATH,
         "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title)s.%(ext)s"),
         "noplaylist": True,
         "progress_hooks": [hook_progreso],
@@ -38,6 +44,11 @@ def descargar(url, calidad):
         "writethumbnail": True,
         "quiet": True,
     }
+
+    ffmpeg = get_ffmpeg_path()
+    if ffmpeg:
+        opciones["ffmpeg_location"] = ffmpeg
+
     try:
         with yt_dlp.YoutubeDL(opciones) as ydl:
             info = ydl.extract_info(url, download=True)
