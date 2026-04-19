@@ -3,35 +3,40 @@ from flask import Flask, render_template, request, send_file, jsonify
 import yt_dlp
 import os
 import shutil
+import glob
 import threading
 
 app = Flask(__name__)
 
-DOWNLOAD_FOLDER = "./downloads"
-COOKIE_FILE = "cookies.txt"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOWNLOAD_FOLDER = os.path.join(BASE_DIR, "downloads")
+COOKIE_FILE = os.path.join(BASE_DIR, "cookies.txt")
+
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
 descarga_estado = {"progreso": 0, "estado": "idle", "archivo": "", "error": ""}
 
+
 def get_ffmpeg_path():
+    # 1. Buscar en PATH del sistema
     ruta = shutil.which("ffmpeg")
     if ruta:
-        return os.path.dirname(ruta)
+        return os.path.dirname(os.path.realpath(ruta))
+
+    # 2. Buscar en WinGet con wildcard
+    patrones = [
+        os.path.expanduser(r"~\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg*\*\bin"),
+        r"C:\ffmpeg\bin",
+        r"C:\Program Files\ffmpeg\bin",
+        r"C:\ProgramData\chocolatey\bin",
+    ]
+    for patron in patrones:
+        for carpeta in glob.glob(patron):
+            if os.path.exists(os.path.join(carpeta, "ffmpeg.exe")):
+                return carpeta
+
     return None
 
-def get_browser_cookies():
-    navegadores = ["brave", "chrome", "edge", "firefox", "opera", "chromium"]
-    for nav in navegadores:
-        try:
-            with yt_dlp.YoutubeDL({
-                "quiet": True,
-                "cookiesfrombrowser": (nav,)
-            }) as ydl:
-                _ = ydl.cookiejar
-            return (nav,)
-        except Exception:
-            continue
-    return None
 
 def hook_progreso(d):
     if d["status"] == "downloading":
@@ -43,6 +48,7 @@ def hook_progreso(d):
     elif d["status"] == "finished":
         descarga_estado["estado"] = "convirtiendo"
 
+
 def construir_opciones(calidad):
     opciones = {
         "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
@@ -52,9 +58,8 @@ def construir_opciones(calidad):
         "postprocessors": [
             {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": calidad},
             {"key": "FFmpegMetadata"},
-            {"key": "EmbedThumbnail"},
         ],
-        "writethumbnail": True,
+        "writethumbnail": False,
         "quiet": True,
         "extractor_args": {
             "youtube": {
@@ -69,12 +74,9 @@ def construir_opciones(calidad):
 
     if os.path.exists(COOKIE_FILE):
         opciones["cookiefile"] = COOKIE_FILE
-    else:
-        browser = get_browser_cookies()
-        if browser:
-            opciones["cookiesfrombrowser"] = browser
 
     return opciones
+
 
 def descargar(url, calidad):
     descarga_estado.update({"progreso": 0, "estado": "iniciando", "archivo": "", "error": ""})
@@ -88,19 +90,18 @@ def descargar(url, calidad):
     except Exception as e:
         mensaje = str(e)
         if "Sign in to confirm you're not a bot" in mensaje:
-            mensaje = (
-                "YouTube bloqueo la descarga. Exporta cookies.txt desde tu navegador "
-                "y dejalo en la carpeta del proyecto."
-            )
+            mensaje = "YouTube bloqueo la descarga. Exporta cookies.txt desde tu navegador y dejalo en la carpeta del proyecto."
         elif "429" in mensaje or "Too Many Requests" in mensaje:
             mensaje = "YouTube esta limitando solicitudes. Espera unos minutos e intenta de nuevo."
         elif "Requested format is not available" in mensaje:
             mensaje = "Formato no disponible para este video. Intenta con otra calidad."
         descarga_estado.update({"estado": "error", "error": mensaje})
 
+
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 @app.route("/descargar", methods=["POST"])
 def iniciar_descarga():
@@ -113,9 +114,11 @@ def iniciar_descarga():
     hilo.start()
     return jsonify({"ok": True})
 
+
 @app.route("/estado")
 def estado():
     return jsonify(descarga_estado)
+
 
 @app.route("/obtener")
 def obtener_archivo():
@@ -124,6 +127,10 @@ def obtener_archivo():
         return send_file(archivo, as_attachment=True)
     return jsonify({"error": "Archivo no disponible"}), 404
 
+
 if __name__ == "__main__":
+    print(f"[DEBUG] BASE_DIR: {BASE_DIR}")
+    print(f"[DEBUG] ffmpeg detectado en: {get_ffmpeg_path()}")
+    print(f"[DEBUG] cookies.txt existe: {os.path.exists(COOKIE_FILE)}")
     print("Servidor corriendo en http://localhost:5000")
     app.run(debug=False, host="0.0.0.0", port=5000)
