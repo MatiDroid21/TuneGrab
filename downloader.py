@@ -31,7 +31,7 @@ def get_browser_cookies():
 
 def construir_opciones(carpeta, calidad):
     opciones = {
-        "format": "bestaudio/best",
+        "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
         "outtmpl": os.path.join(carpeta, "%(title)s.%(ext)s"),
         "noplaylist": True,
         "postprocessors": [
@@ -80,17 +80,12 @@ def descargar_mp3(url: str, carpeta: str = "./downloads", calidad: str = "0"):
     except yt_dlp.utils.DownloadError as e:
         mensaje = str(e)
         if "Sign in to confirm you're not a bot" in mensaje:
-            mensaje = (
-                "YouTube bloqueo la descarga. "
-                "La solucion mas estable es exportar cookies.txt desde tu navegador del PC "
-                "y dejarlo en la carpeta del proyecto."
-            )
+            mensaje = "YouTube bloqueo la descarga. Exporta cookies.txt y dejalo en la carpeta del proyecto."
         elif "429" in mensaje or "Too Many Requests" in mensaje:
-            mensaje = (
-                "YouTube esta limitando las solicitudes (429 Too Many Requests). "
-                "Espera un rato o usa cookies.txt desde una sesion iniciada."
-            )
-        print(f"\nError al descargar: {mensaje}")
+            mensaje = "YouTube esta limitando solicitudes. Espera unos minutos e intenta de nuevo."
+        elif "Requested format is not available" in mensaje:
+            mensaje = "Formato no disponible. Intenta con -q 0 para calidad automatica."
+        print(f"\nError: {mensaje}")
         sys.exit(1)
 
 def main():
@@ -109,7 +104,6 @@ def main():
         choices=["0", "128", "192", "256", "320"],
         help="Calidad del MP3 en kbps (0 = maxima, default: 0)",
     )
-
     args = parser.parse_args()
     descargar_mp3(args.url, args.output, args.quality)
 

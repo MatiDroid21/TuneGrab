@@ -33,9 +33,19 @@ def get_browser_cookies():
             continue
     return None
 
-def base_opts(calidad):
+def hook_progreso(d):
+    if d["status"] == "downloading":
+        total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
+        descargado = d.get("downloaded_bytes", 0)
+        if total:
+            descarga_estado["progreso"] = int(descargado / total * 100)
+            descarga_estado["estado"] = "descargando"
+    elif d["status"] == "finished":
+        descarga_estado["estado"] = "convirtiendo"
+
+def construir_opciones(calidad):
     opciones = {
-        "format": "bestaudio/best",
+        "format": "bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best",
         "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title)s.%(ext)s"),
         "noplaylist": True,
         "progress_hooks": [hook_progreso],
@@ -57,34 +67,17 @@ def base_opts(calidad):
     if ffmpeg:
         opciones["ffmpeg_location"] = ffmpeg
 
-    return opciones
-
-def construir_opciones(calidad):
-    opciones = base_opts(calidad)
-
     if os.path.exists(COOKIE_FILE):
         opciones["cookiefile"] = COOKIE_FILE
-        return opciones
-
-    browser = get_browser_cookies()
-    if browser:
-        opciones["cookiesfrombrowser"] = browser
+    else:
+        browser = get_browser_cookies()
+        if browser:
+            opciones["cookiesfrombrowser"] = browser
 
     return opciones
-
-def hook_progreso(d):
-    if d["status"] == "downloading":
-        total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
-        descargado = d.get("downloaded_bytes", 0)
-        if total:
-            descarga_estado["progreso"] = int(descargado / total * 100)
-            descarga_estado["estado"] = "descargando"
-    elif d["status"] == "finished":
-        descarga_estado["estado"] = "convirtiendo"
 
 def descargar(url, calidad):
     descarga_estado.update({"progreso": 0, "estado": "iniciando", "archivo": "", "error": ""})
-
     try:
         opciones = construir_opciones(calidad)
         with yt_dlp.YoutubeDL(opciones) as ydl:
@@ -96,15 +89,13 @@ def descargar(url, calidad):
         mensaje = str(e)
         if "Sign in to confirm you're not a bot" in mensaje:
             mensaje = (
-                "YouTube bloqueo la descarga. "
-                "La solucion mas estable es exportar cookies.txt desde tu navegador del PC "
-                "y dejarlo en la carpeta del proyecto."
+                "YouTube bloqueo la descarga. Exporta cookies.txt desde tu navegador "
+                "y dejalo en la carpeta del proyecto."
             )
         elif "429" in mensaje or "Too Many Requests" in mensaje:
-            mensaje = (
-                "YouTube esta limitando las solicitudes (429 Too Many Requests). "
-                "Espera un rato o usa cookies.txt desde una sesion iniciada."
-            )
+            mensaje = "YouTube esta limitando solicitudes. Espera unos minutos e intenta de nuevo."
+        elif "Requested format is not available" in mensaje:
+            mensaje = "Formato no disponible para este video. Intenta con otra calidad."
         descarga_estado.update({"estado": "error", "error": mensaje})
 
 @app.route("/")
