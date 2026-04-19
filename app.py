@@ -8,7 +8,10 @@ import threading
 app = Flask(__name__)
 
 DOWNLOAD_FOLDER = "./downloads"
+COOKIE_FILE = "cookies.txt"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+
+descarga_estado = {"progreso": 0, "estado": "idle", "archivo": "", "error": ""}
 
 def get_ffmpeg_path():
     ruta = shutil.which("ffmpeg")
@@ -16,7 +19,58 @@ def get_ffmpeg_path():
         return os.path.dirname(ruta)
     return None
 
-descarga_estado = {"progreso": 0, "estado": "idle", "archivo": "", "error": ""}
+def get_browser_cookies():
+    navegadores = ["brave", "chrome", "edge", "firefox", "opera", "chromium"]
+    for nav in navegadores:
+        try:
+            with yt_dlp.YoutubeDL({
+                "quiet": True,
+                "cookiesfrombrowser": (nav,)
+            }) as ydl:
+                _ = ydl.cookiejar
+            return (nav,)
+        except Exception:
+            continue
+    return None
+
+def base_opts(calidad):
+    opciones = {
+        "format": "bestaudio/best",
+        "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title)s.%(ext)s"),
+        "noplaylist": True,
+        "progress_hooks": [hook_progreso],
+        "postprocessors": [
+            {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": calidad},
+            {"key": "FFmpegMetadata"},
+            {"key": "EmbedThumbnail"},
+        ],
+        "writethumbnail": True,
+        "quiet": True,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web_safari", "tv"]
+            }
+        }
+    }
+
+    ffmpeg = get_ffmpeg_path()
+    if ffmpeg:
+        opciones["ffmpeg_location"] = ffmpeg
+
+    return opciones
+
+def construir_opciones(calidad):
+    opciones = base_opts(calidad)
+
+    if os.path.exists(COOKIE_FILE):
+        opciones["cookiefile"] = COOKIE_FILE
+        return opciones
+
+    browser = get_browser_cookies()
+    if browser:
+        opciones["cookiesfrombrowser"] = browser
+
+    return opciones
 
 def hook_progreso(d):
     if d["status"] == "downloading":
@@ -31,32 +85,27 @@ def hook_progreso(d):
 def descargar(url, calidad):
     descarga_estado.update({"progreso": 0, "estado": "iniciando", "archivo": "", "error": ""})
 
-    opciones = {
-        "format": "bestaudio/best",
-        "outtmpl": os.path.join(DOWNLOAD_FOLDER, "%(title)s.%(ext)s"),
-        "noplaylist": True,
-        "progress_hooks": [hook_progreso],
-        "postprocessors": [
-            {"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": calidad},
-            {"key": "FFmpegMetadata"},
-            {"key": "EmbedThumbnail"},
-        ],
-        "writethumbnail": True,
-        "quiet": True,
-    }
-
-    ffmpeg = get_ffmpeg_path()
-    if ffmpeg:
-        opciones["ffmpeg_location"] = ffmpeg
-
     try:
+        opciones = construir_opciones(calidad)
         with yt_dlp.YoutubeDL(opciones) as ydl:
             info = ydl.extract_info(url, download=True)
             titulo = info.get("title", "audio")
             archivo_mp3 = os.path.join(DOWNLOAD_FOLDER, f"{titulo}.mp3")
             descarga_estado.update({"estado": "listo", "progreso": 100, "archivo": archivo_mp3})
     except Exception as e:
-        descarga_estado.update({"estado": "error", "error": str(e)})
+        mensaje = str(e)
+        if "Sign in to confirm you're not a bot" in mensaje:
+            mensaje = (
+                "YouTube bloqueo la descarga. "
+                "La solucion mas estable es exportar cookies.txt desde tu navegador del PC "
+                "y dejarlo en la carpeta del proyecto."
+            )
+        elif "429" in mensaje or "Too Many Requests" in mensaje:
+            mensaje = (
+                "YouTube esta limitando las solicitudes (429 Too Many Requests). "
+                "Espera un rato o usa cookies.txt desde una sesion iniciada."
+            )
+        descarga_estado.update({"estado": "error", "error": mensaje})
 
 @app.route("/")
 def index():
